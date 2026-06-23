@@ -243,9 +243,9 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   <div class="card">
     <div class="card-title">公演情報</div>
     <div class="row">
-      <div class="field" style="flex:2"><label>公演名</label><input type="text" id="showName" value="○○公演"></div>
-      <div class="field" style="flex:1"><label>日付</label><input type="text" id="showDate" value="2025年10月"></div>
-      <div class="field" style="width:140px"><label>準備金（円）</label><input type="number" id="startCash" value="10000" step="500"></div>
+      <div class="field" style="flex:2"><label>公演名</label><input type="text" id="showName" oninput="saveState()" value="○○公演"></div>
+      <div class="field" style="flex:1"><label>日付</label><input type="text" id="showDate" oninput="saveState()" value="2025年10月"></div>
+      <div class="field" style="width:140px"><label>準備金（円）</label><input type="number" id="startCash" oninput="saveState()" value="10000" step="500"></div>
     </div>
   </div>
 
@@ -703,6 +703,7 @@ const COL_ROLES=[
   {value:'name',   label:'氏名'},
   {value:'kana',   label:'フリガナ'},
   {value:'qty',    label:'枚数'},
+  {value:'ticket', label:'チケット種別'},
   {value:'cast',   label:'窓口'},
   {value:'session',label:'公演回'},
   {value:'ignore', label:'無視'},
@@ -743,11 +744,15 @@ function showConfirm(){
     const kana=get(row,'kana').replace(/　様$|　さん$| 様$| さん$/,'').trim();
     const qty=parseInt((get(row,'qty')||'1').replace(/枚|名/g,''))||1;
     const castRaw=get(row,'cast');
+    const ticketRaw=get(row,'ticket');
     const session=get(row,'session');
     // 窓口列が指定されていればそこから、なければ全列を結合してキャスト判定
     const searchText=castRaw||row.join(' ');
     const castId=guessCast(searchText);
-    return{name,kana,qty,castRaw:castRaw||searchText,castId,session};
+    // チケット種別マッチ
+    const ticketMatch=tickets.find(t=>ticketRaw&&ticketRaw.includes(t.name));
+    const ticketId=ticketMatch?ticketMatch.id:'';
+    return{name,kana,qty,ticketRaw,ticketId,castRaw:castRaw||searchText,castId,session};
   }).filter(r=>r.name);
   if(!mappedRows.length){alert('取り込めるデータがありませんでした');return;}
   const unresolved=mappedRows.filter(r=>r.castRaw&&!r.castId);
@@ -759,17 +764,24 @@ function showConfirm(){
   mappedRows.forEach((r,i)=>{
     const castOpts=casts.map(c=>`<option value="${c.id}"${c.id===r.castId?' selected':''}>${c.name}</option>`).join('');
     const tr=document.createElement('tr');
+    const ticketOpts=tickets.map(t=>`<option value="${t.id}"${t.id===r.ticketId?' selected':''}>${t.name}</option>`).join('');
     tr.innerHTML=`
-      <td><input type="text" value="${r.name}" style="width:100px;font-size:12px;" onchange="mappedRows[${i}].name=this.value.trim()"></td>
-      <td><input type="text" value="${r.kana||''}" style="width:100px;font-size:12px;" placeholder="フリガナ" onchange="mappedRows[${i}].kana=this.value.trim()"></td>
-      <td><input type="number" value="${r.qty}" min="1" max="20" style="width:50px;font-size:12px;" onchange="mappedRows[${i}].qty=parseInt(this.value)||1"></td>
+      <td><input type="text" value="${r.name}" style="width:90px;font-size:12px;" onchange="mappedRows[${i}].name=this.value.trim()"></td>
+      <td><input type="text" value="${r.kana||''}" style="width:90px;font-size:12px;" placeholder="フリガナ" onchange="mappedRows[${i}].kana=this.value.trim()"></td>
+      <td><input type="number" value="${r.qty}" min="1" max="20" style="width:45px;font-size:12px;" onchange="mappedRows[${i}].qty=parseInt(this.value)||1"></td>
+      <td>
+        <select style="font-size:12px;" onchange="mappedRows[${i}].ticketId=this.value">
+          <option value=""${!r.ticketId?' selected':''}>（未指定／自動生成）</option>${ticketOpts}
+        </select>
+        ${r.ticketRaw&&!r.ticketId?`<div style="font-size:10px;color:#1D9E75;">✚ "${r.ticketRaw}" を新規追加</div>`:''}
+      </td>
       <td>
         <select style="font-size:12px;" onchange="mappedRows[${i}].castId=this.value">
           <option value=""${!r.castId?' selected':''}>（未指定／自動生成）</option>${castOpts}
         </select>
         ${r.castRaw&&!r.castId?`<div style="font-size:10px;color:#1D9E75;">✚ "${r.castRaw}" を新規追加</div>`:''}
       </td>
-      <td><input type="text" value="${r.session||''}" style="width:100px;font-size:12px;" onchange="mappedRows[${i}].session=this.value.trim()"></td>`;
+      <td><input type="text" value="${r.session||''}" style="width:90px;font-size:12px;" onchange="mappedRows[${i}].session=this.value.trim()"></td>`;
     tbody.appendChild(tr);
   });
   document.getElementById('confirmModal').style.display='block';
@@ -779,6 +791,7 @@ function commitImport(){
   const tbody=document.getElementById('confirmBody');
   let added=0;
   let newCastNames=[];
+  let newTicketNames=[];
   tbody.querySelectorAll('tr').forEach((tr,i)=>{
     const r=mappedRows[i];
     const inputs=tr.querySelectorAll('input,select');
@@ -786,7 +799,22 @@ function commitImport(){
     if(!name)return;
     const qty=parseInt(inputs[2].value)||1;
     const session=inputs[4]?inputs[4].value.trim():'';
-    const ticketId=tickets[0]?tickets[0].id:'';
+    // チケット種別：セレクト値→自動生成→デフォルト の順
+    let ticketId=inputs[3]?inputs[3].value||'':'';
+    const mr=mappedRows[i];
+    if(!ticketId&&mr&&mr.ticketRaw&&mr.ticketRaw.trim()){
+      const rawTName=mr.ticketRaw.trim();
+      const existingT=tickets.find(t=>t.name===rawTName);
+      if(existingT){
+        ticketId=existingT.id;
+      } else {
+        const newTId='t'+ticketNextId++;
+        tickets.push({id:newTId,name:rawTName,price:0});
+        ticketId=newTId;
+        if(!newTicketNames.includes(rawTName))newTicketNames.push(rawTName);
+      }
+    }
+    if(!ticketId) ticketId=tickets[0]?tickets[0].id:'';
 
     // 窓口：セレクトで選ばれていればそれを使う、なければcastRawから自動生成
     let castId=inputs[3]?inputs[3].value||'':'';
@@ -810,13 +838,11 @@ function commitImport(){
   closeConfirm();closeMap();
   document.getElementById('pasteArea').value='';
   renderCasts();syncSelects();updateStatBar();saveState();
-  const msg=newCastNames.length
-    ? `${added}件を取り込みました
-
-新規窓口を追加しました：${newCastNames.join('、')}
-⚙️設定でバック金額を設定してください。`
-    : `${added}件を取り込みました`;
-  alert(msg);
+  const msgs=[];
+  if(newCastNames.length) msgs.push(`新規窓口を追加しました：${newCastNames.join('、')}\n⚙️設定でバック金額を設定してください。`);
+  if(newTicketNames.length) msgs.push(`新規チケット種別を追加しました：${newTicketNames.join('、')}\n⚙️設定で金額を設定してください。`);
+  alert(`${added}件を取り込みました${msgs.length?'\n\n'+msgs.join('\n'):''}`);
+  renderTickets();
 }
 
 /* ===== 集計 ===== */
@@ -919,7 +945,7 @@ function renderCasts(){
     const div=document.createElement('div');
     div.className='cast-row';
     div.innerHTML=`
-      <input type="text" value="${c.name}" style="width:110px;" onchange="casts[${i}].name=this.value;syncSelects();">
+      <input type="text" value="${c.name}" style="width:110px;" onchange="casts[${i}].name=this.value;syncSelects();saveState();">
       <div class="field"><label>バック(円/枚)</label>
         <div style="display:flex;gap:4px;align-items:center;">
           <input type="number" value="${c.back}" min="0" step="100" style="width:85px;" id="back-inp-${i}" onchange="casts[${i}].back=parseInt(this.value)||0;">
@@ -940,10 +966,10 @@ function renderCasts(){
   });
   syncSelects();
 }
-function addCast(){casts.push({id:'c'+(castNextId++),name:'新キャスト',back:300,keywords:[]});renderCasts();}
-function removeCast(i){if(!confirm(`「${casts[i].name}」を削除しますか？`))return;const id=casts[i].id;reservations.forEach(r=>{if(r.castId===id)r.castId='';});casts.splice(i,1);renderCasts();}
-function addKw(i){const inp=document.getElementById('kw'+i);const v=inp.value.trim();if(!v)return;if(!casts[i].keywords.includes(v))casts[i].keywords.push(v);inp.value='';renderCasts();}
-function removeKw(i,ki){casts[i].keywords.splice(ki,1);renderCasts();}
+function addCast(){casts.push({id:'c'+(castNextId++),name:'新キャスト',back:300,keywords:[]});renderCasts();saveState();}
+function removeCast(i){if(!confirm(`「${casts[i].name}」を削除しますか？`))return;const id=casts[i].id;reservations.forEach(r=>{if(r.castId===id)r.castId='';});casts.splice(i,1);renderCasts();saveState();}
+function addKw(i){const inp=document.getElementById('kw'+i);const v=inp.value.trim();if(!v)return;if(!casts[i].keywords.includes(v))casts[i].keywords.push(v);inp.value='';renderCasts();saveState();}
+function removeKw(i,ki){casts[i].keywords.splice(ki,1);renderCasts();saveState();}
 
 /* ===== 設定：チケット ===== */
 function renderTickets(){
@@ -953,15 +979,15 @@ function renderTickets(){
     const div=document.createElement('div');
     div.className='ticket-row';
     div.innerHTML=`
-      <input type="text" value="${t.name}" style="width:120px;" onchange="tickets[${i}].name=this.value;syncSelects();">
-      <div class="field"><label>金額(円)</label><input type="number" value="${t.price}" min="0" step="100" style="width:85px;" onchange="tickets[${i}].price=parseInt(this.value)||0;"></div>
+      <input type="text" value="${t.name}" style="width:120px;" onchange="tickets[${i}].name=this.value;syncSelects();saveState();">
+      <div class="field"><label>金額(円)</label><input type="number" value="${t.price}" min="0" step="100" style="width:85px;" onchange="tickets[${i}].price=parseInt(this.value)||0;saveState();"></div>
       <button class="btn-sm btn-red" onclick="removeTicket(${i})">削除</button>`;
     el.appendChild(div);
   });
   syncSelects();
 }
-function addTicket(){tickets.push({id:'t'+(ticketNextId++),name:'新種別',price:2000});renderTickets();}
-function removeTicket(i){if(tickets.length<=1){alert('最低1つ必要です');return;}tickets.splice(i,1);renderTickets();}
+function addTicket(){tickets.push({id:'t'+(ticketNextId++),name:'新種別',price:2000});renderTickets();saveState();}
+function removeTicket(i){if(tickets.length<=1){alert('最低1つ必要です');return;}tickets.splice(i,1);renderTickets();saveState();}
 
 /* ===== 保存・読み込み ===== */
 function saveAll(){
