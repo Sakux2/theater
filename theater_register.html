@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="description" content="劇場向けチケット販売・受付管理アプリ。予約取込・来場チェックイン・売上集計を管理します。">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a1a2e' width='180' height='180'/><text x='50%' y='50%' font-size='100' fill='%234ecca3' text-anchor='middle' dominant-baseline='middle' font-family='system-ui' font-weight='bold'>🎭</text></svg>">
 <title>受付台帳</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -670,6 +674,7 @@ function openCI(id){
     r.checkinAt=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
     renderList();
     updateStatBar();
+    saveState();
     return;
   }
 
@@ -1298,40 +1303,113 @@ function confirmWalkIn(){
   closeWalkIn();syncSelects();updateStatBar();renderList();saveState();
 }
 
-/* ===== localStorage自動保存 ===== */
+/* ===== 永続化層：localStorage + IndexedDB ===== */
 const LS_KEY='theater_register_v1';
+const IDB_NAME='theater_register_db';
+const IDB_STORE='state';
+let useIndexedDB=false;
 
-function saveState(){
+async function initDB(){
   try{
-    const data={
-      version:4,
-      showName:document.getElementById('showName').value,
-      showDate:document.getElementById('showDate').value,
-      startCash:document.getElementById('startCash').value,
-      casts,castNextId,tickets,ticketNextId,reservations,rNextId
+    const request=indexedDB.open(IDB_NAME,1);
+    request.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
     };
-    localStorage.setItem(LS_KEY,JSON.stringify(data));
-  }catch(e){console.warn('自動保存失敗',e);}
+    return new Promise((resolve,reject)=>{
+      request.onsuccess=()=>{useIndexedDB=true;resolve(request.result);};
+      request.onerror=()=>{useIndexedDB=false;reject(request.error);};
+    });
+  }catch(e){useIndexedDB=false;return null;}
 }
 
-function loadState(){
+async function saveToIDB(data){
+  if(!useIndexedDB)return;
+  try{
+    const db=await initDB();
+    if(!db)return;
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    const store=tx.objectStore(IDB_STORE);
+    store.put(data,LS_KEY);
+    await new Promise(resolve=>tx.oncomplete=resolve);
+  }catch(e){console.warn('IndexedDB保存失敗',e);}
+}
+
+async function loadFromIDB(){
+  if(!useIndexedDB)return null;
+  try{
+    const db=await initDB();
+    if(!db)return null;
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const store=tx.objectStore(IDB_STORE);
+    return new Promise((resolve,reject)=>{
+      const req=store.get(LS_KEY);
+      req.onsuccess=()=>resolve(req.result||null);
+      req.onerror=()=>reject(req.error);
+    });
+  }catch(e){console.warn('IndexedDB読み込み失敗',e);return null;}
+}
+
+function saveState(){
+  const data={
+    version:4,
+    showName:document.getElementById('showName').value,
+    showDate:document.getElementById('showDate').value,
+    startCash:document.getElementById('startCash').value,
+    casts,castNextId,tickets,ticketNextId,reservations,rNextId
+  };
+  let saved=false;
+  try{
+    localStorage.setItem(LS_KEY,JSON.stringify(data));
+    saved=true;
+    console.log('✅ localStorage保存成功',data.reservations.length,'件の予約');
+  }catch(e){
+    console.warn('⚠️  localStorage保存失敗:',e.message);
+    saveToIDB(data).then(()=>{
+      console.log('✅ IndexedDB保存完了');
+    });
+  }
+}
+
+async function loadState(){
   try{
     const raw=localStorage.getItem(LS_KEY);
-    if(!raw)return false;
-    const d=JSON.parse(raw);
-    document.getElementById('showName').value=d.showName||'';
-    document.getElementById('showDate').value=d.showDate||'';
-    document.getElementById('startCash').value=d.startCash||0;
-    casts=d.casts||[];castNextId=d.castNextId||20;
-    tickets=d.tickets||[];ticketNextId=d.ticketNextId||10;
-    reservations=d.reservations||[];rNextId=d.rNextId||1;
-    return true;
-  }catch(e){console.warn('復元失敗',e);return false;}
+    if(raw){
+      const d=JSON.parse(raw);
+      applyData(d);
+      return true;
+    }
+  }catch(e){console.warn('localStorage読み込み失敗',e);}
+  try{
+    const d=await loadFromIDB();
+    if(d){
+      applyData(d);
+      return true;
+    }
+  }catch(e){console.warn('IndexedDB読み込み失敗',e);}
+  return false;
+}
+
+function applyData(d){
+  document.getElementById('showName').value=d.showName||'';
+  document.getElementById('showDate').value=d.showDate||'';
+  document.getElementById('startCash').value=d.startCash||0;
+  casts=d.casts||[];castNextId=d.castNextId||20;
+  tickets=d.tickets||[];ticketNextId=d.ticketNextId||10;
+  reservations=d.reservations||[];rNextId=d.rNextId||1;
 }
 
 function resetAll(){
   if(!confirm('全データをリセットしますか？\n公演情報・窓口・チケット・予約が全て消えます。\n\nこの操作は取り消せません。'))return;
   localStorage.removeItem(LS_KEY);
+  if(useIndexedDB){
+    const db=indexedDB.open(IDB_NAME,1);
+    db.onsuccess=()=>{
+      const tx=db.result.transaction(IDB_STORE,'readwrite');
+      tx.objectStore(IDB_STORE).clear();
+      console.log('IndexedDB もクリアしました');
+    };
+  }
   casts=[];castNextId=20;
   tickets=[];ticketNextId=10;
   reservations=[];rNextId=1;
@@ -1343,12 +1421,33 @@ function resetAll(){
 }
 
 /* ===== 初期化 ===== */
-if(loadState()){
+(async ()=>{
+  const hasData=await loadState();
   renderCasts();renderTickets();syncSelects();updateStatBar();renderList();
-  console.log('前回のデータを復元しました');
-} else {
-  renderCasts();renderTickets();syncSelects();updateStatBar();renderList();
+  if(hasData){
+    console.log('前回のデータを復元しました');
+  }
+})();
+
+/* ===== PWA: Service Worker登録 ===== */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg=>{
+      console.log('✅ Service Worker 登録成功:', reg.scope);
+    })
+    .catch(err=>{
+      console.warn('⚠️  Service Worker 登録失敗:', err.message);
+    });
 }
+
+/* ===== PWAインストール促進（オプション） ===== */
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt=e;
+  console.log('✅ インストール可能な状態です');
+});
+
 </script>
 </body>
 </html>
