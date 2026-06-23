@@ -155,6 +155,7 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <button class="filt-btn"        id="filt-wait"   onclick="setFilt('wait')">未着</button>
     <button class="filt-btn"        id="filt-done"   onclick="setFilt('done')">来場済</button>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+      <button class="btn-green" onclick="openWalkIn()" style="font-size:12px;padding:5px 10px;">＋ 飛び込み</button>
       <label style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;">
         <input type="checkbox" id="fastMode"> 高速チェックイン
       </label>
@@ -191,6 +192,11 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <div class="card-title">種別別集計</div>
     <table class="cast-table"><thead><tr><th>種別</th><th>来場組</th><th>来場枚</th><th>売上</th></tr></thead>
     <tbody id="ticketSumBody"></tbody></table>
+  </div>
+  <div class="card">
+    <div class="card-title">公演回別集計</div>
+    <table class="cast-table"><thead><tr><th>公演回</th><th>予約枚数</th><th>来場枚数</th><th>未着枚数</th><th>来場率</th><th>売上</th><th>バック</th><th>劇団収入</th></tr></thead>
+    <tbody id="sessionSumBody"></tbody></table>
   </div>
   <div class="card">
     <div class="card-title">金種確認表</div>
@@ -277,6 +283,92 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   </div>
 </div>
 
+<!-- 飛び込みモーダル -->
+<div class="modal" id="walkInModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <strong>⚡ 飛び込み入力</strong>
+      <button onclick="closeWalkIn()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#888;margin-bottom:.75rem;">予約なしのお客様をすぐに来場済みで登録します。</div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>お名前</label>
+        <input type="text" id="wi-name" placeholder="山田 太郎">
+      </div>
+      <div class="row" style="margin-bottom:.75rem;">
+        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20"></div>
+        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket"></select></div>
+        <div class="field" style="flex:1"><label>窓口</label><select id="wi-cast"></select></div>
+      </div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>公演回</label>
+        <select id="wi-session"></select>
+      </div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>料金変更（空白=定価）</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="wi-price" placeholder="例: 1750" min="0" step="100" style="width:130px;">
+          <span style="font-size:12px;color:#aaa;">円</span>
+        </div>
+      </div>
+      <div class="amount-box" id="wi-amount-box" style="margin:.75rem 0;">請求額：<span id="wi-amount">¥0</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem;">
+        <label style="font-size:13px;white-space:nowrap;width:64px;">お預かり</label>
+        <input type="number" id="wi-payment" placeholder="0" min="0" step="100" oninput="calcWiChange()" style="flex:1;">
+        <span style="color:#888;">円</span>
+      </div>
+      <div id="wi-change-wrap" style="display:none;margin-bottom:.75rem;">
+        <div class="change-box">お釣り ¥<span id="wi-change">0</span></div>
+      </div>
+      <button class="btn-green" style="width:100%;padding:12px;font-size:15px;" onclick="confirmWalkIn()">⚡ 来場済みで登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- 飛び込みモーダル -->
+<div class="modal" id="walkInModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <strong>⚡ 飛び込み入力</strong>
+      <button onclick="closeWalkIn()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#888;margin-bottom:.75rem;">予約なしのお客様をすぐに来場済みで登録します。</div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>お名前</label>
+        <input type="text" id="wi-name" placeholder="山田 太郎">
+      </div>
+      <div class="row" style="margin-bottom:.75rem;">
+        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20"></div>
+        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket"></select></div>
+        <div class="field" style="flex:1"><label>窓口</label><select id="wi-cast"></select></div>
+      </div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>公演回</label>
+        <select id="wi-session"></select>
+      </div>
+      <div class="field" style="margin-bottom:.75rem;">
+        <label>料金変更（空白=定価）</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="wi-price" placeholder="例: 1750" min="0" step="100" style="width:130px;" oninput="calcWiAmt()">
+          <span style="font-size:12px;color:#aaa;">円</span>
+        </div>
+      </div>
+      <div class="amount-box" style="margin:.75rem 0;">請求額：<span id="wi-amount">¥0</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem;">
+        <label style="font-size:13px;white-space:nowrap;width:64px;">お預かり</label>
+        <input type="number" id="wi-payment" placeholder="0" min="0" step="100" oninput="calcWiChange()" style="flex:1;">
+        <span style="color:#888;">円</span>
+      </div>
+      <div id="wi-change-wrap" style="display:none;margin-bottom:.75rem;">
+        <div class="change-box">お釣り ¥<span id="wi-change">0</span></div>
+      </div>
+      <button class="btn-green" style="width:100%;padding:12px;font-size:15px;" onclick="confirmWalkIn()">⚡ 来場済みで登録</button>
+    </div>
+  </div>
+</div>
+
 <!-- チェックインモーダル -->
 <div class="modal" id="ciModal">
   <div class="modal-box" style="max-width:480px;">
@@ -340,6 +432,7 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:.75rem;">
         <input type="checkbox" id="skipHeader" checked> 1行目をヘッダーとしてスキップ
       </label>
+      <div id="mapHint" style="font-size:12px;color:#888;margin-bottom:.5rem;"></div>
       <div style="overflow-x:auto;"><table class="map-table" id="mapTable"></table></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1rem;">
         <button onclick="closeMap()">キャンセル</button>
@@ -431,27 +524,22 @@ function tagLabel(id){return TAGS.find(t=>t.id===id)?.label||id;}
 /* ===== 集計バー ===== */
 function updateStatBar(){
   const sel=document.getElementById('statSession');
-  const prev=sel?sel.value:'';
-  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
-  if(sel){
-    sel.innerHTML='<option value="">全公演回</option>'+sessions.map(s=>`<option value="${s}">${s}</option>`).join('');
-    if(sessions.includes(prev))sel.value=prev;
-  }
   const fs=sel?sel.value:'';
   let base=reservations.filter(r=>r.status!=='cancel');
   if(fs)base=base.filter(r=>r.session===fs);
-  const done=base.filter(r=>r.status==='done');
-  const wait=base.filter(r=>r.status==='wait');
-  const rate=base.length?Math.round(done.length/base.length*100):0;
+  const totalQty=base.reduce((sum,r)=>sum+r.qty,0);
+  const doneQty=base.filter(r=>r.status==='done').reduce((sum,r)=>sum+r.qty,0);
+  const waitQty=base.filter(r=>r.status==='wait').reduce((sum,r)=>sum+r.qty,0);
+  const rate=totalQty?Math.round(doneQty/totalQty*100):0;
   const label=fs?fs:'全公演回';
   document.getElementById('statBar').innerHTML=`
     <div class="stat-item"><div class="stat-val" style="font-size:12px;color:#aaa;">${label}</div><div class="stat-lbl">対象</div></div>
     <div class="stat-sep"></div>
-    <div class="stat-item"><div class="stat-val">${base.length}</div><div class="stat-lbl">総予約</div></div>
+    <div class="stat-item"><div class="stat-val">${totalQty}</div><div class="stat-lbl">予約枚数</div></div>
     <div class="stat-sep"></div>
-    <div class="stat-item"><div class="stat-val" style="color:#4ecca3">${done.length}</div><div class="stat-lbl">来場済</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:#4ecca3">${doneQty}</div><div class="stat-lbl">来場枚数</div></div>
     <div class="stat-sep"></div>
-    <div class="stat-item"><div class="stat-val" style="color:#fbbf24">${wait.length}</div><div class="stat-lbl">未着</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:#fbbf24">${waitQty}</div><div class="stat-lbl">未着枚数</div></div>
     <div class="stat-sep"></div>
     <div class="stat-item"><div class="stat-val">${rate}%</div><div class="stat-lbl">来場率</div></div>`;
 }
@@ -695,8 +783,21 @@ function parsePaste(){
   const text=document.getElementById('pasteArea').value.trim();
   if(!text){alert('テキストを貼り付けてください');return;}
   parsedRows=splitPaste(text);
-  if(!parsedRows.length){alert('データが読み取れませんでした');return;}
+  if(!parsedRows.length){alert('データが読み取けませんでした');return;}
   buildMapTable();
+  const firstRow=parsedRows[0]||[];
+  const skipBox=document.getElementById('skipHeader');
+  const hintEl=document.getElementById('mapHint');
+  if(skipBox){
+    skipBox.checked = looksLikeHeaderRow(firstRow);
+  }
+  if(hintEl){
+    if(looksLikeHeaderRow(firstRow)){
+      hintEl.textContent='1行目は見出しの可能性が高いです。データ行の場合はチェックを外してください。';
+    } else {
+      hintEl.textContent='1行目はデータ行として扱われます。先頭が見出しの場合はチェックを付けてください。';
+    }
+  }
   document.getElementById('mapModal').style.display='block';
 }
 const COL_ROLES=[
@@ -708,8 +809,25 @@ const COL_ROLES=[
   {value:'session',label:'公演回'},
   {value:'ignore', label:'無視'},
 ];
+const HEADER_HINTS=['氏名','名前','フリガナ','ふりがな','枚数','数量','チケット','種別','窓口','公演回','公演','session','ticket','cast','name'];
 function guessRole(ci,sample){
-  return'ignore';
+  const text=(sample||'').toLowerCase();
+  if(!text) return 'ignore';
+  if(text.includes('氏名')||text.includes('名前')) return 'name';
+  if(text.includes('フリガナ')||text.includes('ふりがな')) return 'kana';
+  if(text.includes('枚数')||text.includes('数量')||text.includes('qty')||text.includes('quantity')) return 'qty';
+  if(text.includes('チケット')||text.includes('種別')||text.includes('ticket')) return 'ticket';
+  if(text.includes('窓口')||text.includes('キャスト')||text.includes('cast')) return 'cast';
+  if(text.includes('公演回')||text.includes('公演')||text.includes('session')) return 'session';
+  return 'ignore';
+}
+function looksLikeHeaderRow(row){
+  if(!row||!row.length) return false;
+  const hits=row.reduce((count,cell)=>{
+    const text=(cell||'').toString().toLowerCase();
+    return count + HEADER_HINTS.some(h=>text.includes(h));
+  },0);
+  return hits >= Math.min(2, row.length);
 }
 function buildMapTable(){
   const maxCols=Math.max(...parsedRows.map(r=>r.length));
@@ -798,7 +916,7 @@ function commitImport(){
     const name=inputs[0].value.trim();
     if(!name)return;
     const qty=parseInt(inputs[2].value)||1;
-    const session=inputs[4]?inputs[4].value.trim():'';
+    const session=inputs[5]?inputs[5].value.trim():'';
     // チケット種別：セレクト値→自動生成→デフォルト の順
     let ticketId=inputs[3]?inputs[3].value||'':'';
     const mr=mappedRows[i];
@@ -817,7 +935,7 @@ function commitImport(){
     if(!ticketId) ticketId=tickets[0]?tickets[0].id:'';
 
     // 窓口：セレクトで選ばれていればそれを使う、なければcastRawから自動生成
-    let castId=inputs[3]?inputs[3].value||'':'';
+    let castId=inputs[4]?inputs[4].value||'':'';
     if(!castId && r.castRaw && r.castRaw.trim()){
       const rawName=r.castRaw.trim();
       const existing=casts.find(ca=>ca.name===rawName||ca.keywords.includes(rawName));
@@ -850,15 +968,18 @@ function renderReport(){
   renderCasts();
   const done=reservations.filter(r=>r.status==='done');
   const wait=reservations.filter(r=>r.status==='wait');
+  const allValid=reservations.filter(r=>r.status!=='cancel');
   const totalSales=done.reduce((s,r)=>s+effectivePrice(r),0);
-  const totalPax=done.reduce((s,r)=>s+r.qty,0);
+  const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
+  const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
+  const totalWaitQty=wait.reduce((s,r)=>s+r.qty,0);
   const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
   document.getElementById('summaryGrid').innerHTML=`
-    <div class="sum-item"><div class="val">${done.length}</div><div class="lbl">来場（組）</div></div>
-    <div class="sum-item"><div class="val">${totalPax}</div><div class="lbl">来場（枚）</div></div>
+    <div class="sum-item"><div class="val">${totalReserveQty}</div><div class="lbl">予約枚数</div></div>
+    <div class="sum-item"><div class="val">${totalDoneQty}</div><div class="lbl">来場枚数</div></div>
     <div class="sum-item"><div class="val" style="color:#1D9E75;">¥${totalSales.toLocaleString()}</div><div class="lbl">売上合計</div></div>
     <div class="sum-item"><div class="val" style="color:#D85A30;">¥${totalBack.toLocaleString()}</div><div class="lbl">バック合計</div></div>
-    <div class="sum-item"><div class="val">${wait.length}</div><div class="lbl">未着</div></div>
+    <div class="sum-item"><div class="val">${totalWaitQty}</div><div class="lbl">未着枚数</div></div>
     <div class="sum-item"><div class="val">¥${(totalSales-totalBack).toLocaleString()}</div><div class="lbl">手残り</div></div>`;
   const cb=document.getElementById('castBackBody');
   cb.innerHTML='';
@@ -895,6 +1016,45 @@ function renderReport(){
   document.getElementById('kdStart').textContent='¥'+sc.toLocaleString();
   document.getElementById('kdExp').textContent='¥'+totalSales.toLocaleString();
   calcKd();
+
+  // 公演回別集計
+  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
+  const sessionBody=document.getElementById('sessionSumBody');
+  if(sessionBody){
+    sessionBody.innerHTML='';
+    if(!sessions.length){
+      sessionBody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#aaa;padding:1rem;">公演回データなし</td></tr>';
+    } else {
+      sessions.forEach(s=>{
+        const sAll=reservations.filter(r=>r.session===s&&r.status!=='cancel');
+        const sDone=sAll.filter(r=>r.status==='done');
+        const sWait=sAll.filter(r=>r.status==='wait');
+        const sQty=sAll.reduce((sum,r)=>sum+r.qty,0);
+        const sDoneQty=sDone.reduce((sum,r)=>sum+r.qty,0);
+        const sWaitQty=sWait.reduce((sum,r)=>sum+r.qty,0);
+        const sRate=sQty?Math.round(sDoneQty/sQty*100):0;
+        const sSales=sDone.reduce((sum,r)=>sum+effectivePrice(r),0);
+        const sBack=sDone.reduce((sum,r)=>{const c=getCast(r.castId);return sum + (c?c.back*r.qty:0);},0);
+        const sNet=sSales - sBack;
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td style="font-weight:500;">${s}</td><td>${sQty}枚</td><td style="color:#1D9E75;font-weight:600;">${sDoneQty}枚</td><td style="color:#f59e0b;">${sWaitQty}枚</td><td>${sRate}%</td><td>¥${sSales.toLocaleString()}</td><td style="color:#D85A30;">¥${sBack.toLocaleString()}</td><td style="font-weight:600;">¥${sNet.toLocaleString()}</td>`;
+        sessionBody.appendChild(tr);
+      });
+      // 合計行
+      const allValid=reservations.filter(r=>r.status!=='cancel');
+      const allDone=allValid.filter(r=>r.status==='done');
+      const allSales=allDone.reduce((sum,r)=>sum+effectivePrice(r),0);
+      const allBack=allDone.reduce((sum,r)=>{const c=getCast(r.castId);return sum + (c?c.back*r.qty:0);},0);
+      const allQty=allValid.reduce((sum,r)=>sum+r.qty,0);
+      const allDoneQty=allDone.reduce((sum,r)=>sum+r.qty,0);
+      const allWaitQty=allValid.filter(r=>r.status==='wait').reduce((sum,r)=>sum+r.qty,0);
+      const allNet=allSales - allBack;
+      const tr=document.createElement('tr');
+      tr.style.cssText='background:#f0faf5;font-weight:600;';
+      tr.innerHTML=`<td>合計</td><td>${allQty}枚</td><td style="color:#1D9E75;">${allDoneQty}枚</td><td style="color:#f59e0b;">${allWaitQty}枚</td><td>${allQty?Math.round(allDoneQty/allQty*100):0}%</td><td>¥${allSales.toLocaleString()}</td><td style="color:#D85A30;">¥${allBack.toLocaleString()}</td><td>¥${allNet.toLocaleString()}</td>`;
+      sessionBody.appendChild(tr);
+    }
+  }
 }
 function calcKd(){
   let total=0;
@@ -1019,6 +1179,123 @@ function loadAll(e){
     }catch(err){alert('読み込み失敗: '+err.message);}
   };
   reader.readAsText(file);e.target.value='';
+}
+
+/* ===== 飛び込み入力 ===== */
+function openWalkIn(){
+  syncSelects();
+  // wi-ticket/wi-cast/wi-sessionセレクトを更新
+  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
+  const wiSel=document.getElementById('wi-session');
+  wiSel.innerHTML='<option value="">（未指定）</option>'+sessions.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  ['wi-ticket'].forEach(id=>{
+    const s=document.getElementById(id);
+    s.innerHTML=tickets.map(t=>`<option value="${t.id}">${t.name}（¥${t.price.toLocaleString()}）</option>`).join('');
+  });
+  ['wi-cast'].forEach(id=>{
+    const s=document.getElementById(id);
+    s.innerHTML='<option value="">（未指定）</option>'+casts.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  });
+
+  document.getElementById('wi-name').value='';
+  document.getElementById('wi-qty').value=1;
+  document.getElementById('wi-price').value='';
+  document.getElementById('wi-payment').value='';
+  document.getElementById('wi-change-wrap').style.display='none';
+  calcWiAmt();
+  document.getElementById('walkInModal').style.display='block';
+  setTimeout(()=>document.getElementById('wi-name').focus(),100);
+}
+
+function closeWalkIn(){
+  document.getElementById('walkInModal').style.display='none';
+}
+
+function calcWiAmt(){
+  const tid=document.getElementById('wi-ticket').value;
+  const qty=parseInt(document.getElementById('wi-qty').value)||1;
+  const override=document.getElementById('wi-price').value;
+  const unit=override!==''?parseInt(override)||0:getTicket(tid).price;
+  const amt=unit*qty;
+  document.getElementById('wi-amount').textContent='¥'+amt.toLocaleString();
+  calcWiChange();
+}
+
+function calcWiChange(){
+  const amt=parseInt(document.getElementById('wi-amount').textContent.replace(/[¥,]/g,''))||0;
+  const paid=parseInt(document.getElementById('wi-payment').value)||0;
+  const wrap=document.getElementById('wi-change-wrap');
+  if(paid>0){
+    document.getElementById('wi-change').textContent=Math.max(0,paid-amt).toLocaleString();
+    wrap.style.display='block';
+  } else wrap.style.display='none';
+}
+
+function confirmWalkIn(){
+  const name=document.getElementById('wi-name').value.trim()||'飛び込み';
+  const qty=parseInt(document.getElementById('wi-qty').value)||1;
+  const ticketId=document.getElementById('wi-ticket').value||tickets[0]?.id||'';
+  const castId=document.getElementById('wi-cast').value||'';
+  const session=document.getElementById('wi-session').value||'';
+  const overrideVal=document.getElementById('wi-price').value;
+  const priceOverride=overrideVal!==''?parseInt(overrideVal)||0:null;
+  reservations.push({
+    id:rNextId++,name,kana:'',qty,ticketId,castId,session,
+    memo:'飛び込み',tags:[],priceOverride,
+    status:'done',
+    checkinAt:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})
+  });
+  closeWalkIn();
+  syncSelects();updateStatBar();renderList();saveState();
+}
+
+/* ===== 飛び込み入力 ===== */
+function openWalkIn(){
+  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
+  const wiSel=document.getElementById('wi-session');
+  wiSel.innerHTML='<option value="">（未指定）</option>'+sessions.map(s=>`<option value="${s}">${s}</option>`).join('');
+  const wiT=document.getElementById('wi-ticket');
+  wiT.innerHTML=tickets.map(t=>`<option value="${t.id}">${t.name}（¥${t.price.toLocaleString()}）</option>`).join('');
+  const wiC=document.getElementById('wi-cast');
+  wiC.innerHTML='<option value="">（未指定）</option>'+casts.map(ca=>`<option value="${ca.id}">${ca.name}</option>`).join('');
+  document.getElementById('wi-name').value='';
+  document.getElementById('wi-qty').value=1;
+  document.getElementById('wi-price').value='';
+  document.getElementById('wi-payment').value='';
+  document.getElementById('wi-change-wrap').style.display='none';
+  calcWiAmt();
+  document.getElementById('walkInModal').style.display='block';
+  setTimeout(()=>document.getElementById('wi-name').focus(),100);
+}
+function closeWalkIn(){document.getElementById('walkInModal').style.display='none';}
+function calcWiAmt(){
+  const tid=document.getElementById('wi-ticket').value;
+  const qty=parseInt(document.getElementById('wi-qty').value)||1;
+  const ov=document.getElementById('wi-price').value;
+  const unit=ov!==''?parseInt(ov)||0:(tid?getTicket(tid).price:0);
+  document.getElementById('wi-amount').textContent='¥'+(unit*qty).toLocaleString();
+  calcWiChange();
+}
+function calcWiChange(){
+  const amt=parseInt(document.getElementById('wi-amount').textContent.replace(/[¥,]/g,''))||0;
+  const paid=parseInt(document.getElementById('wi-payment').value)||0;
+  const wrap=document.getElementById('wi-change-wrap');
+  if(paid>0){document.getElementById('wi-change').textContent=Math.max(0,paid-amt).toLocaleString();wrap.style.display='block';}
+  else wrap.style.display='none';
+}
+function confirmWalkIn(){
+  const name=document.getElementById('wi-name').value.trim()||'飛び込み';
+  const qty=parseInt(document.getElementById('wi-qty').value)||1;
+  const ticketId=document.getElementById('wi-ticket').value||tickets[0]?.id||'';
+  const castId=document.getElementById('wi-cast').value||'';
+  const session=document.getElementById('wi-session').value||'';
+  const ov=document.getElementById('wi-price').value;
+  const priceOverride=ov!==''?parseInt(ov)||0:null;
+  reservations.push({id:rNextId++,name,kana:'',qty,ticketId,castId,session,
+    memo:'飛び込み',tags:[],priceOverride,status:'done',
+    checkinAt:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})});
+  closeWalkIn();syncSelects();updateStatBar();renderList();saveState();
 }
 
 /* ===== localStorage自動保存 ===== */
