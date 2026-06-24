@@ -14,8 +14,8 @@ body{font-family:sans-serif;background:#f4f4f2;color:#222;font-size:14px;}
 
 /* ナビ */
 .nav{display:flex;background:#f7e6d7;color:#4d3728;align-items:center;overflow-x:auto;min-height:72px;}
-.nav-title{padding:0 8px;display:flex;align-items:center;border-right:1px solid rgba(77,55,40,.18);white-space:nowrap;gap:8px;}
-.nav-title img{height:64px;width:auto;display:block;border-radius:10px;object-fit:contain;}
+.nav-title{padding:4px 12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;border-right:1px solid rgba(77,55,40,.18);white-space:nowrap;}
+
 .nav-tab{padding:12px 14px;cursor:pointer;font-size:13px;color:#4d3728;border-bottom:3px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:4px;}
 .nav-tab:hover{color:#311b0e;background:rgba(77,55,40,.12);}
 .nav-tab.active{color:#311b0e;border-bottom-color:#b96d31;background:rgba(77,55,40,.12);}
@@ -142,7 +142,10 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
 <body>
 
 <div class="nav">
-  <div class="nav-title"><img src="sakutto_logo_alt.png" alt="さくっと受付ロゴ"></div>
+  <div class="nav-title">
+    <div style="font-size:18px;font-weight:900;color:#d4956a;letter-spacing:3px;line-height:1.2;font-family:'Hiragino Maru Gothic Pro','Rounded Mplus 1c','BIZ UDPGothic',sans-serif;">さくっと</div>
+    <div style="font-size:11px;font-weight:700;color:#f4a07a;letter-spacing:1px;line-height:1.2;font-family:'Hiragino Maru Gothic Pro','Rounded Mplus 1c','BIZ UDPGothic',sans-serif;">・・・・受付・・・・</div>
+  </div>
   <div class="nav-tab active" id="tab-list"    onclick="go('list')">📋 予約表</div>
   <div class="nav-tab"        id="tab-absent"  onclick="go('absent')">⚠️ 未着</div>
   <div class="nav-tab"        id="tab-report"  onclick="go('report')">📊 集計</div>
