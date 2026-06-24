@@ -7,24 +7,25 @@
 <meta name="description" content="劇場向けチケット販売・受付管理アプリ。予約取込・来場チェックイン・売上集計を管理します。">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a1a2e' width='180' height='180'/><text x='50%' y='50%' font-size='100' fill='%234ecca3' text-anchor='middle' dominant-baseline='middle' font-family='system-ui' font-weight='bold'>🎭</text></svg>">
-<title>受付台帳</title>
+<title>さくっと受付</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:sans-serif;background:#f4f4f2;color:#222;font-size:14px;}
 
 /* ナビ */
-.nav{display:flex;background:#1a1a2e;color:#fff;align-items:stretch;overflow-x:auto;}
-.nav-title{font-size:13px;font-weight:700;padding:0 14px;display:flex;align-items:center;border-right:1px solid #333;white-space:nowrap;}
-.nav-tab{padding:14px 12px;cursor:pointer;font-size:13px;color:#aaa;border-bottom:3px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:4px;}
-.nav-tab:hover{color:#fff;background:rgba(255,255,255,.05);}
-.nav-tab.active{color:#fff;border-bottom-color:#4ecca3;}
+.nav{display:flex;background:#f7e6d7;color:#4d3728;align-items:center;overflow-x:auto;min-height:72px;}
+.nav-title{padding:0 8px;display:flex;align-items:center;border-right:1px solid rgba(77,55,40,.18);white-space:nowrap;gap:8px;}
+.nav-title img{height:64px;width:auto;display:block;border-radius:10px;object-fit:contain;}
+.nav-tab{padding:12px 14px;cursor:pointer;font-size:13px;color:#4d3728;border-bottom:3px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:4px;}
+.nav-tab:hover{color:#311b0e;background:rgba(77,55,40,.12);}
+.nav-tab.active{color:#311b0e;border-bottom-color:#b96d31;background:rgba(77,55,40,.12);}
 
 /* リアルタイム集計バー */
-.stat-bar{background:#1a1a2e;color:#fff;padding:6px 1rem;display:flex;gap:16px;font-size:12px;flex-wrap:wrap;border-top:1px solid #2a2a3e;}
+.stat-bar{background:#f7e6d7;color:#4d3728;padding:6px 1rem;display:flex;gap:16px;font-size:12px;flex-wrap:wrap;border-top:1px solid rgba(77,55,40,.18);}
 .stat-item{display:flex;flex-direction:column;align-items:center;gap:1px;}
 .stat-val{font-size:16px;font-weight:700;}
-.stat-lbl{font-size:10px;color:#aaa;}
-.stat-sep{width:1px;background:#333;margin:2px 0;}
+.stat-lbl{font-size:10px;color:#6a4f3d;}
+.stat-sep{width:1px;background:rgba(77,55,40,.18);margin:2px 0;}
 
 /* ページ */
 .page{display:none;padding:1rem;max-width:960px;}
@@ -69,6 +70,7 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
 .tag-torioki{background:#f3e8ff;color:#6b21a8;}
 .tag-vip{background:#1a1a2e;color:#4ecca3;}
 .tag-other{background:#f0f0ef;color:#555;}
+.tag-memo{background:#e5f6ff;color:#064a6d;border:1px solid #a5d8ff;}
 .rsv-status{font-size:12px;font-weight:500;white-space:nowrap;}
 .status-wait{color:#92400e;}
 .status-done{color:#065f46;}
@@ -126,16 +128,21 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
 .warn{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:.5rem .75rem;font-size:12px;color:#92400e;margin-bottom:.75rem;}
 
 @media print{
+  @page{size:A4 portrait;margin:8mm;}
+  html,body{margin:0;padding:0;height:auto!important;overflow:visible!important;}
   .nav,.stat-bar,.filter-bar,.no-print{display:none!important;}
-  .page{display:block!important;padding:0;}
+  .page{display:none!important;padding:0;margin:0 auto!important;width:auto!important;max-width:none!important;}
+  .page.active{display:block!important;padding:0;margin:0 auto!important;}
   .card{box-shadow:none;border:1px solid #eee;}
+  .card{margin:0 0 12px!important;}
+  body{background:none!important;}
 }
 </style>
 </head>
 <body>
 
 <div class="nav">
-  <div class="nav-title">🎭 受付台帳</div>
+  <div class="nav-title"><img src="sakutto_logo_alt.png" alt="さくっと受付ロゴ"></div>
   <div class="nav-tab active" id="tab-list"    onclick="go('list')">📋 予約表</div>
   <div class="nav-tab"        id="tab-absent"  onclick="go('absent')">⚠️ 未着</div>
   <div class="nav-tab"        id="tab-report"  onclick="go('report')">📊 集計</div>
@@ -158,14 +165,20 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <button class="filt-btn active" id="filt-all"    onclick="setFilt('all')">全件</button>
     <button class="filt-btn"        id="filt-wait"   onclick="setFilt('wait')">未着</button>
     <button class="filt-btn"        id="filt-done"   onclick="setFilt('done')">来場済</button>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
       <button class="btn-green" onclick="openWalkIn()" style="font-size:12px;padding:5px 10px;">＋ 飛び込み</button>
-      <label style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;">
+      <label style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap;">
         <input type="checkbox" id="fastMode"> 高速チェックイン
       </label>
     </div>
   </div>
   <div id="rsvList" class="rsv-list"></div>
+  <div class="card no-print" style="margin-top:0.75rem;">
+    <div class="row" style="justify-content:flex-end;gap:8px;">
+      <button onclick="exportListCSV()">📄 CSV出力</button>
+      <button onclick="printList()">🖨 印刷</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== 未着一覧 ===== -->
@@ -173,6 +186,7 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   <div class="card no-print" style="padding:.5rem 1rem;">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select id="absentFilterSession" onchange="renderAbsent()" style="width:140px;"><option value="">全公演回</option></select>
+      <button onclick="copyAbsentText()" class="btn-sm">📋 コピー</button>
       <button onclick="window.print()" class="btn-sm" style="margin-left:auto;">🖨 印刷/共有</button>
     </div>
   </div>
@@ -202,24 +216,11 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <table class="cast-table"><thead><tr><th>公演回</th><th>予約枚数</th><th>来場枚数</th><th>未着枚数</th><th>来場率</th><th>売上</th><th>バック</th><th>劇団収入</th></tr></thead>
     <tbody id="sessionSumBody"></tbody></table>
   </div>
-  <div class="card">
-    <div class="card-title">金種確認表</div>
-    <table class="kd-table">
-      <thead><tr><th>金種</th><th>枚数</th><th>金額</th></tr></thead>
-      <tbody id="kdBody"></tbody>
-      <tfoot>
-        <tr class="kd-total"><td>現金合計</td><td>—</td><td id="kdTotal">¥0</td></tr>
-        <tr><td colspan="2" style="text-align:left;padding-left:10px;color:#888;font-size:12px;">準備金</td><td id="kdStart">¥0</td></tr>
-        <tr class="kd-total"><td colspan="2" style="text-align:left;padding-left:10px;">実収入</td><td id="kdNet">¥0</td></tr>
-        <tr><td colspan="2" style="text-align:left;padding-left:10px;color:#888;font-size:12px;">売上合計</td><td id="kdExp">¥0</td></tr>
-        <tr><td colspan="2" style="text-align:left;padding-left:10px;font-weight:600;">差異</td><td id="kdDiff" style="font-weight:600;">¥0</td></tr>
-      </tfoot>
-    </table>
-  </div>
   <div class="card no-print">
     <div class="row">
-      <button onclick="saveAll()">💾 保存</button>
-      <button onclick="window.print()">🖨 印刷</button>
+      <button onclick="exportReportCSV()">📄 CSV出力</button>
+      <button onclick="copyReportText()">📋 コピー</button>
+      <button onclick="printReport()">🖨 印刷</button>
     </div>
   </div>
 </div>
@@ -253,9 +254,8 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   <div class="card">
     <div class="card-title">公演情報</div>
     <div class="row">
-      <div class="field" style="flex:2"><label>公演名</label><input type="text" id="showName" oninput="saveState()" value="○○公演"></div>
-      <div class="field" style="flex:1"><label>日付</label><input type="text" id="showDate" oninput="saveState()" value="2025年10月"></div>
-      <div class="field" style="width:140px"><label>準備金（円）</label><input type="number" id="startCash" oninput="saveState()" value="10000" step="500"></div>
+      <div class="field" style="flex:2"><label>公演名</label><input type="text" id="showName" oninput="saveState()" placeholder="例: 〇〇公演"></div>
+      <div class="field" style="flex:1"><label>日付</label><input type="text" id="showDate" oninput="saveState()" placeholder="例: 2025年10月"></div>
     </div>
   </div>
 
@@ -270,6 +270,12 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <div class="card-title">チケット種別</div>
     <div id="ticketRows"></div>
     <button onclick="addTicket()" style="margin-top:.5rem;">＋ 追加</button>
+  </div>
+  <div class="card">
+    <div class="card-title">受付タグ</div>
+    <div id="tagRows"></div>
+    <button onclick="addTag()" style="margin-top:.5rem;">＋ 追加</button>
+    <div class="csv-hint">💡 タグはチェックイン時に切り替えられます。現場に合わせて追加してください。</div>
   </div>
   <div class="card">
     <div class="card-title">データ管理</div>
@@ -409,15 +415,20 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
         <div class="change-box">お釣り ¥<span id="ci-change">0</span></div>
       </div>
 
-      <div class="field" style="margin-bottom:.5rem;">
+      <div class="field" style="margin-bottom:.75rem;">
         <label>タグ</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;" id="ci-tag-buttons"></div>
       </div>
       <div class="field" style="margin-bottom:1rem;">
         <label>当日メモ</label>
-        <input type="text" id="ci-memo" placeholder="特記事項など">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="ci-memo" placeholder="特記事項など" style="width:100%;">
+          <button class="btn-sm btn-green" style="white-space:nowrap;" onclick="saveCIMemo()">メモ確定</button>
+        </div>
+        <div id="ci-memo-status" style="font-size:12px;color:#1D9E75;margin-top:4px;min-height:18px;"></div>
       </div>
 
+      <button class="btn-sm btn-green" style="width:100%;padding:10px 0;margin-bottom:.5rem;" onclick="saveCIInfo()">✅ 情報を保存</button>
       <button class="btn-green" style="width:100%;padding:12px;font-size:15px;" onclick="confirmCI()">✅ チェックイン確定</button>
       <div style="display:flex;gap:8px;margin-top:.5rem;">
         <button style="flex:1;color:#888;font-size:12px;" onclick="setStatus('cancel')">キャンセル扱い</button>
@@ -454,7 +465,7 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
       <div class="warn" id="confirmWarn" style="display:none;"></div>
       <div style="overflow-x:auto;">
         <table class="confirm-table">
-          <thead><tr><th>氏名</th><th>枚数</th><th>窓口</th><th>公演回</th></tr></thead>
+          <thead><tr><th>氏名</th><th>枚数</th><th>チケット</th><th>価格</th><th>窓口</th><th>公演回</th></tr></thead>
           <tbody id="confirmBody"></tbody>
         </table>
       </div>
@@ -472,8 +483,8 @@ let casts=[];
 let castNextId=20;
 
 let tickets=[
-  {id:'t1',name:'前売券',price:2000},
-  {id:'t2',name:'当日券',price:2500},
+  {id:'t1',name:'前売券',price:0},
+  {id:'t2',name:'当日券',price:0},
   {id:'t3',name:'招待',  price:0},
 ];
 let ticketNextId=10;
@@ -481,13 +492,12 @@ let ticketNextId=10;
 let reservations=[];
 let rNextId=1;
 
-const TAGS=[
+let TAGS=[
   {id:'tokuten', label:'特典あり',   cls:'tag-tokuten'},
   {id:'shoutai', label:'招待',       cls:'tag-shoutai'},
-  {id:'seisan',  label:'要精算',     cls:'tag-seisan'},
   {id:'torioki', label:'取置きあり', cls:'tag-torioki'},
-  {id:'vip',     label:'VIP',        cls:'tag-vip'},
 ];
+let tagNextId=10;
 
 let currentRsvId=null;
 let listFilt='all';
@@ -615,7 +625,7 @@ function renderList(){
     const statusLbl={wait:'未着',done:'来場済',cancel:'キャンセル'}[r.status];
     const statusCls={wait:'status-wait',done:'status-done',cancel:'status-cancel'}[r.status];
     const tagHtml=(r.tags||[]).map(id=>`<span class="tag ${tagCls(id)}">${tagLabel(id)}</span>`).join('');
-    const memoHtml=r.memo?`<span style="color:#aaa;font-size:11px;">📝 ${r.memo}</span>`:'';
+    const memoHtml=r.memo?`<span class="tag tag-memo">📝 ${r.memo}</span>`:'';
     const priceNote=r.priceOverride!=null?`<span style="color:#D85A30;font-size:11px;">料金変更済</span>`:'';
 
     const div=document.createElement('div');
@@ -657,6 +667,8 @@ function openCI(id){
   document.getElementById('ci-payment').value='';
   document.getElementById('ci-change-wrap').style.display='none';
   document.getElementById('ci-memo').value=r.memo||'';
+  const statusEl=document.getElementById('ci-memo-status');
+  if(statusEl) statusEl.textContent='';
 
   // タグボタン
   const tagBtns=document.getElementById('ci-tag-buttons');
@@ -711,24 +723,56 @@ function calcChange(){
     wrap.style.display='block';
   } else wrap.style.display='none';
 }
-function closeCI(){currentRsvId=null;document.getElementById('ciModal').style.display='none';}
+function closeCI(save=true){
+  if(currentRsvId && save){
+    persistCIInfo();
+    renderList();
+  }
+  currentRsvId=null;
+  document.getElementById('ciModal').style.display='none';
+}
 function setStatus(st){
   if(!currentRsvId)return;
+  persistCIInfo();
   reservations.find(r=>r.id===currentRsvId).status=st;
-  closeCI();renderList();updateStatBar();saveState();
+  closeCI(false);
+  renderList();updateStatBar();saveState();
 }
-function confirmCI(){
-  if(!currentRsvId)return;
+function persistCIInfo(){
+  if(!currentRsvId) return;
   const r=reservations.find(r=>r.id===currentRsvId);
+  if(!r) return;
   r.ticketId=document.getElementById('ci-ticket').value;
   r.qty=parseInt(document.getElementById('ci-qty').value)||1;
   r.castId=document.getElementById('ci-cast').value;
   const ov=document.getElementById('ci-price-override').value;
   r.priceOverride=ov!==''?parseInt(ov)||0:null;
   r.memo=document.getElementById('ci-memo').value.trim();
+  saveState();
+  renderList();
+}
+function saveCIMemo(){
+  if(!currentRsvId) return;
+  persistCIInfo();
+  document.getElementById('ci-memo-status').textContent='メモを保存しました';
+  setTimeout(()=>{const el=document.getElementById('ci-memo-status'); if(el) el.textContent='';}, 2500);
+}
+
+function saveCIInfo(){
+  if(!currentRsvId) return;
+  persistCIInfo();
+  document.getElementById('ci-memo-status').textContent='情報を保存しました';
+  setTimeout(()=>{const el=document.getElementById('ci-memo-status'); if(el) el.textContent='';}, 2500);
+}
+
+function confirmCI(){
+  if(!currentRsvId)return;
+  persistCIInfo();
+  const r=reservations.find(r=>r.id===currentRsvId);
   r.status='done';
   r.checkinAt=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-  closeCI();renderList();updateStatBar();saveState();
+  closeCI(false);
+  renderList();updateStatBar();saveState();
 }
 
 /* ===== 未着一覧 ===== */
@@ -810,6 +854,7 @@ const COL_ROLES=[
   {value:'kana',   label:'フリガナ'},
   {value:'qty',    label:'枚数'},
   {value:'ticket', label:'チケット種別'},
+  {value:'price',  label:'チケット価格'},
   {value:'cast',   label:'窓口'},
   {value:'session',label:'公演回'},
   {value:'ignore', label:'無視'},
@@ -822,6 +867,7 @@ function guessRole(ci,sample){
   if(text.includes('フリガナ')||text.includes('ふりがな')) return 'kana';
   if(text.includes('枚数')||text.includes('数量')||text.includes('qty')||text.includes('quantity')) return 'qty';
   if(text.includes('チケット')||text.includes('種別')||text.includes('ticket')) return 'ticket';
+  if(text.includes('価格')||text.includes('金額')||text.includes('price')) return 'price';
   if(text.includes('窓口')||text.includes('キャスト')||text.includes('cast')) return 'cast';
   if(text.includes('公演回')||text.includes('公演')||text.includes('session')) return 'session';
   return 'ignore';
@@ -868,6 +914,7 @@ function showConfirm(){
     const qty=parseInt((get(row,'qty')||'1').replace(/枚|名/g,''))||1;
     const castRaw=get(row,'cast');
     const ticketRaw=get(row,'ticket');
+    const priceRaw=get(row,'price');
     const session=get(row,'session');
     // 窓口列が指定されていればそこから、なければ全列を結合してキャスト判定
     const searchText=castRaw||row.join(' ');
@@ -875,7 +922,7 @@ function showConfirm(){
     // チケット種別マッチ
     const ticketMatch=tickets.find(t=>ticketRaw&&ticketRaw.includes(t.name));
     const ticketId=ticketMatch?ticketMatch.id:'';
-    return{name,kana,qty,ticketRaw,ticketId,castRaw:castRaw||searchText,castId,session};
+    return{name,kana,qty,ticketRaw,priceRaw,ticketId,castRaw:castRaw||searchText,castId,session};
   }).filter(r=>r.name);
   if(!mappedRows.length){alert('取り込めるデータがありませんでした');return;}
   const unresolved=mappedRows.filter(r=>r.castRaw&&!r.castId);
@@ -898,6 +945,7 @@ function showConfirm(){
         </select>
         ${r.ticketRaw&&!r.ticketId?`<div style="font-size:10px;color:#1D9E75;">✚ "${r.ticketRaw}" を新規追加</div>`:''}
       </td>
+      <td><input type="number" value="${r.priceRaw||''}" style="width:70px;font-size:12px;" placeholder="価格" onchange="mappedRows[${i}].priceRaw=this.value.trim()"></td>
       <td>
         <select style="font-size:12px;" onchange="mappedRows[${i}].castId=this.value">
           <option value=""${!r.castId?' selected':''}>（未指定／自動生成）</option>${castOpts}
@@ -921,26 +969,40 @@ function commitImport(){
     const name=inputs[0].value.trim();
     if(!name)return;
     const qty=parseInt(inputs[2].value)||1;
-    const session=inputs[5]?inputs[5].value.trim():'';
+    const session=inputs[6]?inputs[6].value.trim():'';
     // チケット種別：セレクト値→自動生成→デフォルト の順
     let ticketId=inputs[3]?inputs[3].value||'':'';
     const mr=mappedRows[i];
+    let priceOverride=null;
+    const priceRawText=mr && mr.priceRaw != null ? mr.priceRaw.toString().trim() : '';
+    const priceValue=priceRawText !== '' ? parseInt(priceRawText.replace(/[^0-9]/g,''),10) : null;
     if(!ticketId&&mr&&mr.ticketRaw&&mr.ticketRaw.trim()){
       const rawTName=mr.ticketRaw.trim();
       const existingT=tickets.find(t=>t.name===rawTName);
       if(existingT){
         ticketId=existingT.id;
+        if(priceValue !== null && existingT.price !== priceValue){
+          priceOverride=priceValue;
+          if(existingT.price == null) existingT.price=priceValue;
+        }
       } else {
         const newTId='t'+ticketNextId++;
-        tickets.push({id:newTId,name:rawTName,price:0});
+        tickets.push({id:newTId,name:rawTName,price:priceValue !== null ? priceValue : 0});
         ticketId=newTId;
         if(!newTicketNames.includes(rawTName))newTicketNames.push(rawTName);
       }
     }
     if(!ticketId) ticketId=tickets[0]?tickets[0].id:'';
+    if(ticketId && priceValue !== null){
+      const ticketItem=tickets.find(t=>t.id===ticketId);
+      if(ticketItem){
+        if(ticketItem.price == null) ticketItem.price=priceValue;
+        if(ticketItem.price !== priceValue) priceOverride=priceValue;
+      }
+    }
 
     // 窓口：セレクトで選ばれていればそれを使う、なければcastRawから自動生成
-    let castId=inputs[4]?inputs[4].value||'':'';
+    let castId=inputs[5]?inputs[5].value||'':'';
     if(!castId && r.castRaw && r.castRaw.trim()){
       const rawName=r.castRaw.trim();
       const existing=casts.find(ca=>ca.name===rawName||ca.keywords.includes(rawName));
@@ -955,7 +1017,7 @@ function commitImport(){
     }
 
     const kana=inputs[1]?inputs[1].value.trim():(r.kana||'');
-    reservations.push({id:rNextId++,name,kana,qty,ticketId,castId,session,memo:'',tags:[],priceOverride:null,status:'wait'});
+    reservations.push({id:rNextId++,name,kana,qty,ticketId,castId,session,memo:'',tags:[],priceOverride:priceOverride,status:'wait'});
     added++;
   });
   closeConfirm();closeMap();
@@ -1010,18 +1072,6 @@ function renderReport(){
     tb.appendChild(tr);
   });
   const denoms=[10000,5000,2000,1000,500,100,50,10,5,1];
-  const kb=document.getElementById('kdBody');
-  kb.innerHTML='';
-  denoms.forEach(d=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>¥${d.toLocaleString()}</td><td><input type="number" min="0" value="0" data-d="${d}" oninput="calcKd()"></td><td id="kd${d}">¥0</td>`;
-    kb.appendChild(tr);
-  });
-  const sc=parseInt(document.getElementById('startCash').value)||0;
-  document.getElementById('kdStart').textContent='¥'+sc.toLocaleString();
-  document.getElementById('kdExp').textContent='¥'+totalSales.toLocaleString();
-  calcKd();
-
   // 公演回別集計
   const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
   const sessionBody=document.getElementById('sessionSumBody');
@@ -1061,24 +1111,209 @@ function renderReport(){
     }
   }
 }
-function calcKd(){
-  let total=0;
-  document.querySelectorAll('#kdBody input[data-d]').forEach(inp=>{
-    const d=parseInt(inp.dataset.d),cnt=parseInt(inp.value)||0,amt=d*cnt;
-    document.getElementById('kd'+d).textContent='¥'+amt.toLocaleString();
-    total+=amt;
-  });
-  document.getElementById('kdTotal').textContent='¥'+total.toLocaleString();
-  const sc=parseInt(document.getElementById('startCash').value)||0;
-  const net=total-sc;
-  document.getElementById('kdNet').textContent='¥'+net.toLocaleString();
-  const exp=parseInt(document.getElementById('kdExp').textContent.replace(/[¥,]/g,''))||0;
-  const diff=net-exp;
-  const el=document.getElementById('kdDiff');
-  el.textContent=(diff>=0?'+':'')+'¥'+diff.toLocaleString();
-  el.style.color=diff===0?'#1D9E75':diff>0?'#D85A30':'#e05050';
-}
 
+function formatCurrency(value){
+  return '¥'+value.toLocaleString();
+}
+function copyTextToClipboard(text, label){
+  if(!text) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{
+      alert(`${label} をコピーしました。LINEやメールに貼り付けて送れます。`);
+    }).catch(()=>{
+      prompt('コピーできませんでした。以下を手動でコピーしてください。', text);
+    });
+  } else {
+    prompt('以下をコピーしてください。', text);
+  }
+}
+function generateReportText(){
+  const done=reservations.filter(r=>r.status==='done');
+  const wait=reservations.filter(r=>r.status==='wait');
+  const allValid=reservations.filter(r=>r.status!=='cancel');
+  const totalSales=done.reduce((s,r)=>s+effectivePrice(r),0);
+  const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
+  const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
+  const totalWaitQty=wait.reduce((s,r)=>s+r.qty,0);
+  const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
+  const lines=[];
+  lines.push('=== 集計結果 ===');
+  lines.push(`予約枚数: ${totalReserveQty}枚`);
+  lines.push(`来場枚数: ${totalDoneQty}枚`);
+  lines.push(`売上合計: ${formatCurrency(totalSales)}`);
+  lines.push(`バック合計: ${formatCurrency(totalBack)}`);
+  lines.push(`未着枚数: ${totalWaitQty}枚`);
+  lines.push(`手残り: ${formatCurrency(totalSales - totalBack)}`);
+  lines.push('');
+  lines.push('--- 窓口別 ---');
+  [...casts,{id:'',name:'未指定',back:0}].forEach(c=>{
+    const all=done.filter(r=>c.id?r.castId===c.id:!r.castId);
+    if(!all.length && c.id) return;
+    const paxAll=reservations.filter(r=>c.id?r.castId===c.id:!r.castId).reduce((s,r)=>s+r.qty,0);
+    const paxDone=all.reduce((s,r)=>s+r.qty,0);
+    const backTotal=c.id?c.back*paxDone:0;
+    lines.push(`${c.name}: 予約${paxAll}枚 / 来場${paxDone}枚 / バック${formatCurrency(backTotal)}`);
+  });
+  lines.push('');
+  lines.push('--- 種別別 ---');
+  tickets.forEach(t=>{
+    const rs=done.filter(r=>r.ticketId===t.id);
+    const pax=rs.reduce((s,r)=>s+r.qty,0);
+    const sales=rs.reduce((s,r)=>s+effectivePrice(r),0);
+    lines.push(`${t.name}: ${rs.length}組 ${pax}枚 ${formatCurrency(sales)}`);
+  });
+  lines.push('');
+  lines.push('--- 公演回別 ---');
+  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
+  if(!sessions.length){
+    lines.push('公演回データなし');
+  } else {
+    sessions.forEach(s=>{
+      const sAll=reservations.filter(r=>r.session===s&&r.status!=='cancel');
+      const sDone=sAll.filter(r=>r.status==='done');
+      const sWait=sAll.filter(r=>r.status==='wait');
+      const sQty=sAll.reduce((sum,r)=>sum+r.qty,0);
+      const sDoneQty=sDone.reduce((sum,r)=>sum+r.qty,0);
+      const sWaitQty=sWait.reduce((sum,r)=>sum+r.qty,0);
+      const sRate=sQty?Math.round(sDoneQty/sQty*100):0;
+      const sSales=sDone.reduce((sum,r)=>sum+effectivePrice(r),0);
+      const sBack=sDone.reduce((sum,r)=>{const c=getCast(r.castId);return sum + (c?c.back*r.qty:0);},0);
+      lines.push(`${s}: 予約${sQty}枚 / 来場${sDoneQty}枚 / 未着${sWaitQty}枚 / 来場率${sRate}% / 売上${formatCurrency(sSales)} / バック${formatCurrency(sBack)} / 手残り${formatCurrency(sSales-sBack)}`);
+    });
+  }
+  return lines.join('\n');
+}
+function copyReportText(){
+  copyTextToClipboard(generateReportText(), '集計結果');
+}
+function generateAbsentText(){
+  const fs=document.getElementById('absentFilterSession').value;
+  let absent=reservations.filter(r=>r.status==='wait');
+  if(fs) absent=absent.filter(r=>r.session===fs);
+  if(!absent.length) return '未着なし';
+  const lines=[];
+  lines.push(`未着一覧${fs?`（${fs}）`:''}`);
+  [...casts,{id:'',name:'窓口未指定'}].forEach(c=>{
+    const members=absent.filter(r=>c.id?r.castId===c.id:!r.castId);
+    if(!members.length) return;
+    lines.push(`${c.name} 未着 ${members.length}名`);
+    members.forEach(r=>{
+      const ticketName=(getTicket(r.ticketId)||{}).name||'';
+      lines.push(`・${r.name} ${r.qty}枚 ${r.session||''} ${ticketName}`);
+    });
+  });
+  return lines.join('\n');
+}
+function copyAbsentText(){
+  copyTextToClipboard(generateAbsentText(), '未着一覧');
+}
+function exportListCSV(){
+  const q=document.getElementById('listSearch').value.trim();
+  const fs=document.getElementById('listFilterSession').value;
+  const fc=document.getElementById('listFilterCast').value;
+  let list=reservations;
+  if(q) list=list.filter(r=>r.name.includes(q)||(r.kana&&r.kana.includes(q)));
+  if(fs) list=list.filter(r=>r.session===fs);
+  if(fc) list=list.filter(r=>r.castId===fc);
+  if(listFilt==='wait') list=list.filter(r=>r.status==='wait');
+  if(listFilt==='done') list=list.filter(r=>r.status==='done');
+  list=[...list].sort((a,b)=>{
+    if(a.kana&&b.kana)return a.kana.localeCompare(b.kana,'ja');
+    if(a.kana)return -1;
+    if(b.kana)return 1;
+    return 0;
+  });
+  if(!list.length){alert('出力する予約がありません。');return;}
+  const rows=[['氏名','フリガナ','枚数','種別','価格','窓口','公演回','状態','タグ','メモ']];
+  list.forEach(r=>{
+    const ticket=getTicket(r.ticketId).name;
+    const cast=getCast(r.castId)?.name||'';
+    const status={wait:'未着',done:'来場済',cancel:'キャンセル'}[r.status]||r.status;
+    const tags=(r.tags||[]).map(id=>tagLabel(id)).join(' / ');
+    rows.push([r.name,r.kana||'',r.qty,ticket,effectivePrice(r),cast,r.session||'',status,tags,r.memo||'']);
+  });
+  const csv=rows.map(r=>r.map(v=>typeof v==='string'?`"${v.replace(/"/g,'""')}"`:v).join(',')).join('\r\n');
+  const bom=new Uint8Array([0xEF,0xBB,0xBF]);
+  const blob=new Blob([bom, csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='受付表.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function printList(){
+  window.print();
+}
+function exportReportCSV(){
+  const done=reservations.filter(r=>r.status==='done');
+  const allValid=reservations.filter(r=>r.status!=='cancel');
+  const totalSales=done.reduce((s,r)=>s+effectivePrice(r),0);
+  const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
+  const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
+  const totalWaitQty=reservations.filter(r=>r.status==='wait').reduce((s,r)=>s+r.qty,0);
+  const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
+  const rows=[
+    ['項目','値'],
+    ['予約枚数',totalReserveQty],
+    ['来場枚数',totalDoneQty],
+    ['売上合計',totalSales],
+    ['バック合計',totalBack],
+    ['未着枚数',totalWaitQty],
+    ['手残り',totalSales-totalBack],
+    [],
+    ['窓口','予約枚数','来場枚数','バック単価','バック合計']
+  ];
+  [...casts,{id:'',name:'未指定',back:0}].forEach(c=>{
+    const all=reservations.filter(r=>c.id?r.castId===c.id:!r.castId);
+    if(!all.length&&c.id) return;
+    const allPax=all.reduce((s,r)=>s+r.qty,0);
+    const donePax=all.filter(r=>r.status==='done').reduce((s,r)=>s+r.qty,0);
+    rows.push([c.name,allPax,donePax,c.back,c.back*donePax]);
+  });
+  rows.push([]);
+  rows.push(['種別','来場組','来場枚','売上']);
+  tickets.forEach(t=>{
+    const rs=done.filter(r=>r.ticketId===t.id);
+    const pax=rs.reduce((s,r)=>s+r.qty,0);
+    const sales=rs.reduce((s,r)=>s+effectivePrice(r),0);
+    rows.push([t.name,rs.length,pax,sales]);
+  });
+  rows.push([]);
+  rows.push(['公演回','予約枚数','来場枚数','未着枚数','来場率(%)','売上','バック','劇団収入']);
+  const sessions=[...new Set(reservations.map(r=>r.session).filter(Boolean))].sort();
+  sessions.forEach(s=>{
+    const sAll=reservations.filter(r=>r.session===s&&r.status!=='cancel');
+    const sDone=sAll.filter(r=>r.status==='done');
+    const sWait=sAll.filter(r=>r.status==='wait');
+    const sQty=sAll.reduce((sum,r)=>sum+r.qty,0);
+    const sDoneQty=sDone.reduce((sum,r)=>sum+r.qty,0);
+    const sWaitQty=sWait.reduce((sum,r)=>sum+r.qty,0);
+    const sRate=sQty?Math.round(sDoneQty/sQty*100):0;
+    const sSales=sDone.reduce((sum,r)=>sum+effectivePrice(r),0);
+    const sBack=sDone.reduce((sum,r)=>{const c=getCast(r.castId);return sum + (c?c.back*r.qty:0);},0);
+    rows.push([s,sQty,sDoneQty,sWaitQty,sRate,sSales,sBack,sSales-sBack]);
+  });
+  const csv=rows.map(r=>r.map(v=>typeof v==='string'?`"${v.replace(/"/g,'""')}"`:v).join(',')).join('\r\n');
+  const bom=new Uint8Array([0xEF,0xBB,0xBF]);
+  const blob=new Blob([bom, csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='集計結果.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function printReport(){
+  const styleId='report-print-style';
+  let style=document.getElementById(styleId);
+  if(style) style.remove();
+  style=document.createElement('style');
+  style.id=styleId;
+  style.textContent='@media print{@page{size:A4 portrait;margin:8mm;} body{margin:0!important;padding:0!important;}}';
+  document.head.appendChild(style);
+  const cleanup=()=>{if(style&&style.parentNode) style.parentNode.removeChild(style); window.removeEventListener('afterprint',cleanup);};
+  window.addEventListener('afterprint',cleanup);
+  window.print();
+}
 /* ===== 窓口設定トグル ===== */
 function fillBackFrom(i){
   const inp=document.getElementById('back-inp-'+i);
@@ -1154,13 +1389,36 @@ function renderTickets(){
 function addTicket(){tickets.push({id:'t'+(ticketNextId++),name:'新種別',price:2000});renderTickets();saveState();}
 function removeTicket(i){if(tickets.length<=1){alert('最低1つ必要です');return;}tickets.splice(i,1);renderTickets();saveState();}
 
+function renderTagSettings(){
+  const el=document.getElementById('tagRows');
+  el.innerHTML='';
+  TAGS.forEach((t,i)=>{
+    const div=document.createElement('div');
+    div.className='ticket-row';
+    div.innerHTML=`
+      <input type="text" value="${t.label}" style="width:160px;" onchange="TAGS[${i}].label=this.value;saveState();renderList();">
+      <div class="field" style="flex:1;"><label>ID</label><input type="text" value="${t.id}" readonly style="width:120px;background:#f9f9f9;"></div>
+      <button class="btn-sm btn-red" onclick="removeTag(${i})">削除</button>`;
+    el.appendChild(div);
+  });
+}
+function addTag(){TAGS.push({id:'tag'+(tagNextId++),label:'新タグ',cls:'tag-other'});renderTagSettings();saveState();}
+function removeTag(i){
+  if(!confirm(`「${TAGS[i].label}」タグを削除しますか？`))return;
+  const removedId=TAGS[i].id;
+  TAGS.splice(i,1);
+  reservations.forEach(r=>{if(r.tags)r.tags=r.tags.filter(id=>id!==removedId);});
+  renderTagSettings();renderList();saveState();
+}
+
+
 /* ===== 保存・読み込み ===== */
 function saveAll(){
-  const data={version:4,
+  const data={version:5,
     showName:document.getElementById('showName').value,
     showDate:document.getElementById('showDate').value,
-    startCash:document.getElementById('startCash').value,
-    casts,castNextId,tickets,ticketNextId,reservations,rNextId};
+    casts,castNextId,tickets,ticketNextId,reservations,rNextId,
+    tags:TAGS,tagNextId};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1175,11 +1433,11 @@ function loadAll(e){
       const d=JSON.parse(ev.target.result);
       document.getElementById('showName').value=d.showName||'';
       document.getElementById('showDate').value=d.showDate||'';
-      document.getElementById('startCash').value=d.startCash||0;
       casts=d.casts||casts;castNextId=d.castNextId||20;
       tickets=d.tickets||tickets;ticketNextId=d.ticketNextId||10;
       reservations=d.reservations||[];rNextId=d.rNextId||1;
-      renderCasts();renderTickets();syncSelects();updateStatBar();saveState();
+      TAGS=d.tags||TAGS; tagNextId=d.tagNextId||tagNextId;
+      renderCasts();renderTickets();renderTagSettings();syncSelects();updateStatBar();saveState();
       alert('読み込みました');
     }catch(err){alert('読み込み失敗: '+err.message);}
   };
@@ -1352,11 +1610,11 @@ async function loadFromIDB(){
 
 function saveState(){
   const data={
-    version:4,
+    version:5,
     showName:document.getElementById('showName').value,
     showDate:document.getElementById('showDate').value,
-    startCash:document.getElementById('startCash').value,
-    casts,castNextId,tickets,ticketNextId,reservations,rNextId
+    casts,castNextId,tickets,ticketNextId,reservations,rNextId,
+    tags:TAGS,tagNextId
   };
   let saved=false;
   try{
@@ -1393,10 +1651,10 @@ async function loadState(){
 function applyData(d){
   document.getElementById('showName').value=d.showName||'';
   document.getElementById('showDate').value=d.showDate||'';
-  document.getElementById('startCash').value=d.startCash||0;
   casts=d.casts||[];castNextId=d.castNextId||20;
   tickets=d.tickets||[];ticketNextId=d.ticketNextId||10;
   reservations=d.reservations||[];rNextId=d.rNextId||1;
+  TAGS=d.tags||TAGS; tagNextId=d.tagNextId||tagNextId;
 }
 
 function resetAll(){
@@ -1415,7 +1673,6 @@ function resetAll(){
   reservations=[];rNextId=1;
   document.getElementById('showName').value='';
   document.getElementById('showDate').value='';
-  document.getElementById('startCash').value=10000;
   renderCasts();renderTickets();syncSelects();updateStatBar();renderList();
   alert('リセットしました');
 }
@@ -1423,7 +1680,7 @@ function resetAll(){
 /* ===== 初期化 ===== */
 (async ()=>{
   const hasData=await loadState();
-  renderCasts();renderTickets();syncSelects();updateStatBar();renderList();
+  renderCasts();renderTickets();renderTagSettings();syncSelects();updateStatBar();renderList();
   if(hasData){
     console.log('前回のデータを復元しました');
   }
