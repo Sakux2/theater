@@ -190,18 +190,16 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
 <!-- ===== 予約表 ===== -->
 <div class="page active" id="page-list">
   <div class="filter-bar">
-    <input type="text" id="listSearch" placeholder="🔍 氏名で検索..." oninput="renderList()">
-    <select id="listFilterSession" onchange="renderList()" style="width:130px;"><option value="">全公演回</option></select>
-    <select id="listFilterCast" onchange="renderList()" style="width:120px;"><option value="">全窓口</option></select>
-    <button class="filt-btn active" id="filt-all"    onclick="setFilt('all')">全件</button>
-    <button class="filt-btn"        id="filt-wait"   onclick="setFilt('wait')">未着</button>
-    <button class="filt-btn"        id="filt-done"   onclick="setFilt('done')">来場済</button>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-      <button class="btn-green" onclick="openWalkIn()" style="font-size:12px;padding:5px 10px;">＋ 飛び込み</button>
-      <label style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-        <input type="checkbox" id="fastMode"> 高速チェックイン
-      </label>
-    </div>
+    <input type="text" id="listSearch" placeholder="🔍 氏名で検索..." oninput="renderList()" style="flex:2;min-width:120px;">
+    <select id="listFilterSession" onchange="renderList()" style="width:110px;"><option value="">全公演回</option></select>
+    <select id="listFilterCast" onchange="renderList()" style="width:90px;"><option value="">全窓口</option></select>
+    <button class="filt-btn active" id="filt-all"  onclick="setFilt('all')">全件</button>
+    <button class="filt-btn"       id="filt-wait"  onclick="setFilt('wait')">未着</button>
+    <button class="filt-btn"       id="filt-done"  onclick="setFilt('done')">来場済</button>
+    <button class="btn-green walkin-desktop" onclick="openWalkIn()" style="font-size:12px;padding:5px 10px;white-space:nowrap;">＋ 飛び込み</button>
+    <label class="fastmode-label" style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap;">
+      <input type="checkbox" id="fastMode"> 高速チェックイン
+    </label>
   </div>
   <div id="rsvList" class="rsv-list"></div>
   <div class="card no-print" style="margin-top:0.75rem;">
