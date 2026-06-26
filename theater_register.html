@@ -134,12 +134,12 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   position:fixed;
   bottom:24px;
   right:20px;
-  width:64px;
-  height:64px;
+  width:68px;
+  height:68px;
   border-radius:50%;
   background:#1D9E75;
   color:#fff;
-  border:none;
+  border:3px solid transparent;
   font-size:18px;
   font-weight:700;
   box-shadow:0 4px 16px rgba(0,0,0,.25);
@@ -148,8 +148,25 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   line-height:1.1;
   text-align:center;
   padding:0;
+  transition:background .2s,border-color .2s;
+  user-select:none;
 }
 .walkin-float:hover{background:#178060;}
+.walkin-float.fast-on{background:#D85A30;border-color:#fff;}
+.fast-hint{
+  display:none;
+  position:fixed;
+  bottom:100px;
+  right:14px;
+  background:rgba(0,0,0,.7);
+  color:#fff;
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:6px;
+  white-space:nowrap;
+  z-index:51;
+  pointer-events:none;
+}
 @media(max-width:600px){
   .walkin-float{display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .walkin-desktop{display:none !important;}
@@ -209,7 +226,15 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     </div>
   </div>
   <!-- スマホ用フローティング飛び込みボタン -->
-  <button class="walkin-float" onclick="openWalkIn()">＋<br><span style="font-size:10px;">飛び込み</span></button>
+  <div class="fast-hint" id="fastHint">長押し: 高速モード切替</div>
+  <button class="walkin-float" id="floatBtn"
+    onclick="floatTap()"
+    onpointerdown="floatPressStart()"
+    onpointerup="floatPressEnd()"
+    onpointerleave="floatPressEnd()">
+    <span id="floatIcon">＋</span><br>
+    <span id="floatLabel" style="font-size:10px;">飛び込み</span>
+  </button>
 </div>
 
 <!-- ===== 未着一覧 ===== -->
@@ -514,9 +539,9 @@ let casts=[];
 let castNextId=20;
 
 let tickets=[
-  {id:'t1',name:'前売券',price:0},
-  {id:'t2',name:'当日券',price:0},
-  {id:'t3',name:'招待',  price:0},
+  {id:'t1',name:'前売券',price:0,back:0},
+  {id:'t2',name:'当日券',price:0,back:0},
+  {id:'t3',name:'招待',  price:0,back:0},
 ];
 let ticketNextId=10;
 
@@ -550,6 +575,15 @@ function go(id){
 /* ===== ユーティリティ ===== */
 function getTicket(id){return tickets.find(t=>t.id===id)||tickets[0];}
 function getCast(id){return casts.find(c=>c.id===id)||null;}
+function effectiveBack(r){
+  const cast=getCast(r.castId);
+  const ticket=getTicket(r.ticketId);
+  // チケット種別にバックが設定されていればそちらを優先、なければキャストのデフォルト
+  const ticketBack=ticket&&ticket.back>0?ticket.back:null;
+  const castBack=cast?cast.back:0;
+  const unitBack=ticketBack!==null?ticketBack:castBack;
+  return unitBack*r.qty;
+}
 function effectivePrice(r){
   if(r.priceOverride!=null) return r.priceOverride*r.qty;
   return getTicket(r.ticketId).price*r.qty;
@@ -711,7 +745,7 @@ function openCI(id){
   updateAmt();
 
   // 高速モード
-  const fast=document.getElementById('fastMode').checked;
+  const fast=isFastMode();
   if(fast&&r.status==='wait'){
     r.status='done';
     r.checkinAt=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
@@ -1071,7 +1105,7 @@ function renderReport(){
   const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
   const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
   const totalWaitQty=wait.reduce((s,r)=>s+r.qty,0);
-  const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
+  const totalBack=done.reduce((s,r)=>s+effectiveBack(r),0);
   document.getElementById('summaryGrid').innerHTML=`
     <div class="sum-item"><div class="val">${totalReserveQty}</div><div class="lbl">予約枚数</div></div>
     <div class="sum-item"><div class="val">${totalDoneQty}</div><div class="lbl">来場枚数</div></div>
@@ -1085,7 +1119,7 @@ function renderReport(){
     const rs=done.filter(r=>c.id?r.castId===c.id:!r.castId);
     if(!rs.length&&c.id)return;
     const pax=rs.reduce((s,r)=>s+r.qty,0);
-    const back=c.id?pax*c.back:0;
+    const back=c.id?rs.reduce((s,r)=>s+effectiveBack(r),0):0;
     const tr=document.createElement('tr');
     const all=reservations.filter(r=>c.id?r.castId===c.id:!r.castId);
     const allPax=all.reduce((s,r)=>s+r.qty,0);
@@ -1166,7 +1200,7 @@ function generateReportText(){
   const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
   const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
   const totalWaitQty=wait.reduce((s,r)=>s+r.qty,0);
-  const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
+  const totalBack=done.reduce((s,r)=>s+effectiveBack(r),0);
   const lines=[];
   lines.push('=== 集計結果 ===');
   lines.push(`予約枚数: ${totalReserveQty}枚`);
@@ -1282,7 +1316,7 @@ function exportReportCSV(){
   const totalReserveQty=allValid.reduce((s,r)=>s+r.qty,0);
   const totalDoneQty=done.reduce((s,r)=>s+r.qty,0);
   const totalWaitQty=reservations.filter(r=>r.status==='wait').reduce((s,r)=>s+r.qty,0);
-  const totalBack=done.reduce((s,r)=>{const c=getCast(r.castId);return s+(c?c.back*r.qty:0);},0);
+  const totalBack=done.reduce((s,r)=>s+effectiveBack(r),0);
   const rows=[
     ['項目','値'],
     ['予約枚数',totalReserveQty],
@@ -1412,6 +1446,7 @@ function renderTickets(){
     div.innerHTML=`
       <input type="text" value="${t.name}" style="width:120px;" onchange="tickets[${i}].name=this.value;syncSelects();saveState();">
       <div class="field"><label>金額(円)</label><input type="number" value="${t.price}" min="0" step="100" style="width:85px;" onchange="tickets[${i}].price=parseInt(this.value)||0;saveState();"></div>
+      <div class="field"><label>バック(円/枚)</label><input type="number" value="${t.back||0}" min="0" step="100" style="width:85px;" onchange="tickets[${i}].back=parseInt(this.value)||0;saveState();"></div>
       <button class="btn-sm btn-red" onclick="removeTicket(${i})">削除</button>`;
     el.appendChild(div);
   });
@@ -1473,6 +1508,51 @@ function loadAll(e){
     }catch(err){alert('読み込み失敗: '+err.message);}
   };
   reader.readAsText(file);e.target.value='';
+}
+
+/* ===== フローティングボタン（飛び込み＋高速モード）===== */
+let fastModeFloat=false;
+let floatTimer=null;
+
+function floatPressStart(){
+  floatTimer=setTimeout(()=>{
+    // 長押し：高速モード切替
+    fastModeFloat=!fastModeFloat;
+    const btn=document.getElementById('floatBtn');
+    const icon=document.getElementById('floatIcon');
+    const label=document.getElementById('floatLabel');
+    if(fastModeFloat){
+      btn.classList.add('fast-on');
+      icon.textContent='⚡';
+      label.textContent='高速ON';
+    } else {
+      btn.classList.remove('fast-on');
+      icon.textContent='＋';
+      label.textContent='飛び込み';
+    }
+    floatTimer=null;
+    // バイブレーション（対応端末のみ）
+    if(navigator.vibrate) navigator.vibrate(60);
+  },600);
+}
+
+function floatPressEnd(){
+  if(floatTimer){clearTimeout(floatTimer);floatTimer=null;}
+}
+
+function floatTap(){
+  if(floatTimer) return; // 長押し処理中は無視
+  if(fastModeFloat){
+    // 高速モード：何もしない（予約カードタップで即チェックイン）
+    return;
+  }
+  openWalkIn();
+}
+
+// openCI内の高速モード判定をfastModeFloatと統合
+function isFastMode(){
+  const cb=document.getElementById('fastMode');
+  return fastModeFloat||(cb&&cb.checked);
 }
 
 /* ===== 飛び込み入力 ===== */
