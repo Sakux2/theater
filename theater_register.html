@@ -170,7 +170,24 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
 @media(max-width:600px){
   .walkin-float{display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .walkin-desktop{display:none !important;}
-  .fastmode-label{display:none !important;}
+  .fastmode-label{
+    margin-left:auto;
+    background:#f0f0ef;
+    border:1px solid #ddd;
+    border-radius:20px;
+    padding:4px 10px;
+    font-size:12px;
+    color:#555;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    cursor:pointer;
+  }
+  .fastmode-label.fast-active{
+    background:#1D9E75;
+    color:#fff;
+    border-color:#1D9E75;
+  }
 }
 @media print{
   @page{size:A4 portrait;margin:8mm;}
@@ -183,6 +200,15 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
   body{background:none!important;}
 }
 </style>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/theater/sw.js')
+      .then(r=>console.log('SW登録成功'))
+      .catch(e=>console.warn('SW登録失敗:', e));
+  });
+}
+</script>
 </head>
 <body>
 
@@ -210,12 +236,14 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
     <input type="text" id="listSearch" placeholder="🔍 氏名で検索..." oninput="renderList()" style="flex:2;min-width:120px;">
     <select id="listFilterSession" onchange="renderList()" style="width:110px;"><option value="">全公演回</option></select>
     <select id="listFilterCast" onchange="renderList()" style="width:90px;"><option value="">全窓口</option></select>
+  </div>
+  <div class="filter-bar" style="margin-top:0;">
     <button class="filt-btn active" id="filt-all"  onclick="setFilt('all')">全件</button>
     <button class="filt-btn"       id="filt-wait"  onclick="setFilt('wait')">未着</button>
     <button class="filt-btn"       id="filt-done"  onclick="setFilt('done')">来場済</button>
     <button class="btn-green walkin-desktop" onclick="openWalkIn()" style="font-size:12px;padding:5px 10px;white-space:nowrap;">＋ 飛び込み</button>
-    <label class="fastmode-label" style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-      <input type="checkbox" id="fastMode"> 高速チェックイン
+    <label class="fastmode-label" id="fastModeLabel" onclick="toggleFastMode()" style="font-size:12px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer;">
+      <input type="checkbox" id="fastMode" style="pointer-events:none;"> 高速チェックイン
     </label>
   </div>
   <div id="rsvList" class="rsv-list"></div>
@@ -363,8 +391,8 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
         <input type="text" id="wi-name" placeholder="山田 太郎">
       </div>
       <div class="row" style="margin-bottom:.75rem;">
-        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20"></div>
-        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket"></select></div>
+        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20" oninput="calcWiAmt()"></div>
+        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket" onchange="calcWiAmt()"></select></div>
         <div class="field" style="flex:1"><label>窓口</label><select id="wi-cast"></select></div>
       </div>
       <div class="field" style="margin-bottom:.75rem;">
@@ -406,8 +434,8 @@ input[type=text],input[type=number],select,textarea{border:1px solid #ddd;border
         <input type="text" id="wi-name" placeholder="山田 太郎">
       </div>
       <div class="row" style="margin-bottom:.75rem;">
-        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20"></div>
-        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket"></select></div>
+        <div class="field" style="width:80px;"><label>枚数</label><input type="number" id="wi-qty" value="1" min="1" max="20" oninput="calcWiAmt()"></div>
+        <div class="field" style="flex:1"><label>種別</label><select id="wi-ticket" onchange="calcWiAmt()"></select></div>
         <div class="field" style="flex:1"><label>窓口</label><select id="wi-cast"></select></div>
       </div>
       <div class="field" style="margin-bottom:.75rem;">
@@ -698,7 +726,7 @@ function renderList(){
     div.onclick=()=>openCI(r.id);
     div.innerHTML=`
       <div class="rsv-main">
-        <div class="rsv-name">${r.name}</div>
+        <div style="display:flex;align-items:baseline;gap:8px;"><div class="rsv-name">${r.name}</div>${r.kana?`<div style="font-size:11px;color:#aaa;">${r.kana}</div>`:''}</div>
         <div class="rsv-sub">${t.name}×${r.qty}枚　¥${price.toLocaleString()}　${c?'/ '+c.name:''}　${r.session||''}　${priceNote}</div>
         ${tagHtml||memoHtml?`<div class="rsv-tags">${tagHtml}${memoHtml}</div>`:''}
       </div>
@@ -848,8 +876,9 @@ function renderAbsent(){
 
   const el=document.getElementById('absentContent');
   if(!absent.length){el.innerHTML='<div class="card" style="text-align:center;padding:2rem;color:#1D9E75;font-size:18px;font-weight:700;">✅ 未着なし</div>';return;}
+  const absentPax=absent.reduce((s,r)=>s+r.qty,0);
 
-  let html=`<div class="card"><div class="absent-header">未着 ${absent.length}名</div>`;
+  let html=`<div class="card"><div class="absent-header">未着 ${absentPax}名（${absent.length}件）</div>`;
 
   // 窓口別
   [...casts,{id:'',name:'窓口未指定'}].forEach(c=>{
@@ -857,7 +886,7 @@ function renderAbsent(){
     if(!members.length)return;
     html+=`<div class="absent-cast-block">
       <div class="absent-cast-name">${c.name} 未着 ${members.length}名</div>
-      ${members.map(r=>`<div class="absent-name-item">・${r.name}　${r.qty}枚　${r.session||''}</div>`).join('')}
+      ${members.map(r=>`<div class="absent-name-item">・${r.name}　<span style="font-weight:600;color:#D85A30;">${r.qty}枚</span>　${r.session||''}</div>`).join('')}
     </div>`;
   });
   html+='</div>';
@@ -972,7 +1001,7 @@ function showConfirm(){
   const skip=document.getElementById('skipHeader').checked;
   const dataRows=skip?parsedRows.slice(1):parsedRows;
   if(!Object.values(roleMap).includes('name')){alert('「氏名」列を指定してください');return;}
-  const get=(row,role)=>{const ci=Object.keys(roleMap).find(k=>roleMap[k]===role);return ci!=null?(row[ci]||'').trim():'';};
+  const get=(row,role)=>{const k=Object.keys(roleMap).find(k=>roleMap[k]===role);if(k==null)return'';return(row[parseInt(k,10)]||'').trim();};
   mappedRows=dataRows.map(row=>{
     const name=get(row,'name').replace(/　様$|　さん$| 様$| さん$/,'').trim();
     const kana=get(row,'kana').replace(/　様$|　さん$| 様$| さん$/,'').trim();
@@ -1550,6 +1579,16 @@ function floatTap(){
 }
 
 // openCI内の高速モード判定をfastModeFloatと統合
+function toggleFastMode(){
+  const cb=document.getElementById('fastMode');
+  cb.checked=!cb.checked;
+  const label=document.getElementById('fastModeLabel');
+  if(cb.checked){
+    label.classList.add('fast-active');
+  } else {
+    label.classList.remove('fast-active');
+  }
+}
 function isFastMode(){
   const cb=document.getElementById('fastMode');
   return fastModeFloat||(cb&&cb.checked);
